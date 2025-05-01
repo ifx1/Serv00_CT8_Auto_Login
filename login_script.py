@@ -100,11 +100,7 @@ async def main():
         status_text = "登录成功" if is_logged_in else "登录失败"
         
         message += (
-            f"🔹 *服务商*: `{serviceName}`\n"  # 保持变量引用
-            f"👤 *账号*: `{username}`\n"
-            f"🕒 *时间*: {now_beijing}\n"
-            f"{status_icon} *状态*: _{status_text}_\n"
-            "────────────────────\n"
+            f"{status_icon} *账号*: {username} {serviceName}"
         )
 
         delay = random.randint(1000, 8000)
@@ -112,6 +108,7 @@ async def main():
     
     # 添加报告尾部
     account_count = len(accounts)  # 计算账户数量
+    message += "━━━━━━━━━━━━━━━━━━━━\n"
     message += f"\n🏁 *{account_count}个账号操作已完成*"
     await send_telegram_message(message)
     print('所有账号登录完成！')
