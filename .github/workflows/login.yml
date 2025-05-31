@@ -41,3 +41,12 @@ jobs:
           ACCOUNTS_JSON: ${{ secrets.ACCOUNTS_JSON }}
         run: |
           python login_script.py
+          
+  keepalive-workflow:
+    name: Keepalive Workflow
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: liskin/gh-workflow-keepalive@v1
