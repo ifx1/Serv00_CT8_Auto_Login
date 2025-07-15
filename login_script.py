@@ -121,8 +121,8 @@ async def main():
 async def send_telegram_message(message, account_count, success_count, failed_count):
     formatted_message = f"""
 📨 *Serv00 & CT8 保号脚本运行报告*
-⏰ *北京时间: {format_to_iso(datetime.utcnow() + timedelta(hours=8))}*
-📊 *共计:{account_count} | ✅ 成功:{success_count} | ❌ 失败:{failed_count}*
+⏰ *北京时间*: `{format_to_iso(datetime.utcnow() + timedelta(hours=8))}`
+📊 *共计*: {account_count} | ✅ *成功*: {success_count} | ❌ *失败*: {failed_count}
 ━━━━━━━━━━━━━━━━━━
 {message}
 """
