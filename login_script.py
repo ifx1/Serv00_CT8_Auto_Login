@@ -110,20 +110,20 @@ async def main():
     beijing_time = format_to_iso(datetime.utcnow() + timedelta(hours=8))
     fail_count = total_accounts - success_count
     
-    message = f"📄 **Serv00 & CT8 保号脚本运行报告**\n"
-    message += f"⏰ **北京时间**: {beijing_time}\n"
-    message += f"📊 **共计**: {total_accounts} | ✅ **成功**: {success_count} | ❌ **失败**: {fail_count}\n"
+    message = f"📄 *Serv00 & CT8 保号脚本运行报告*\n"
+    message += f"⏰ *北京时间*: {beijing_time}\n"
+    message += f"📊 *共计*: {total_accounts} | ✅ *成功*: {success_count} | ❌ *失败*: {fail_count}\n"
     message += "━━━━━━━━━━━━━━━━━━\n"
     
     # 添加成功账号详情
     if success_accounts:
         for success in success_accounts:
-            message += f"✅ **账号**: {success['username']} 📍{success['service']}\n"
+            message += f"✅ *账号*: `{success['username']}` 📍{success['service']}\n"
     
     # 添加失败账号详情
     if failed_accounts:
         for failed in failed_accounts:
-            message += f"❌ **账号**: {failed['username']} 📍{failed['service']}\n"
+            message += f"❌ *账号*: `{failed['username']}` 📍{failed['service']}\n"
     
     await send_telegram_message(message)
     print('所有账号登录完成！')
