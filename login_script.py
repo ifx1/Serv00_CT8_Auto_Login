@@ -26,8 +26,8 @@ message = ""
 async def login(username, password, panel):
     global browser
 
-    page = None
-    serviceName = 'CT8' if 'ct8' in panel else 'Serv00'
+    page = None  # 确保 page 在任何情况下都被定义
+    serviceName = 'CT8' if 'ct8' in panel else 'Serv00'  # 修改大小写
     try:
         if not browser:
             browser = await launch(headless=True, args=['--no-sandbox', '--disable-setuid-sandbox'])
@@ -83,9 +83,11 @@ async def main():
         print(f'读取 accounts.json 文件时出错: {e}')
         return
 
-    # 初始化计数器
+    # 统计变量
+    total_accounts = len(accounts)
     success_count = 0
-    failed_count = 0
+    success_accounts = []
+    failed_accounts = []
 
     for account in accounts:
         username = account['username']
@@ -95,42 +97,43 @@ async def main():
         serviceName = 'CT8' if 'ct8' in panel else 'Serv00'
         is_logged_in = await login(username, password, panel)
 
-        # 更新计数器
         if is_logged_in:
             success_count += 1
+            success_accounts.append({'username': username, 'service': serviceName})
         else:
-            failed_count += 1
-
-        now_beijing = format_to_iso(datetime.utcnow() + timedelta(hours=8))
-        status_icon = "✅" if is_logged_in else "❌"
-        status_text = "登录成功" if is_logged_in else "登录失败"
-        
-        message += (
-            f"{status_icon} **账号**:  `{username}`  🔹{serviceName}\n"
-        )
+            failed_accounts.append({'username': username, 'service': serviceName})
 
         delay = random.randint(1000, 8000)
         await delay_time(delay)
     
-    # 添加统计数据并发送消息
-    account_count = len(accounts)
-    await send_telegram_message(message, account_count, success_count, failed_count)
+    # 构建报告消息
+    beijing_time = format_to_iso(datetime.utcnow() + timedelta(hours=8))
+    fail_count = total_accounts - success_count
+    
+    message = f"📄 **Serv00 & CT8 保号脚本运行报告**\n"
+    message += f"⏰ **北京时间**: {beijing_time}\n"
+    message += f"📊 **共计**: {total_accounts} | ✅ **成功**: {success_count} | ❌ **失败**: {fail_count}\n"
+    message += "━━━━━━━━━━━━━━━━━━\n"
+    
+    # 添加成功账号详情
+    if success_accounts:
+        for success in success_accounts:
+            message += f"✅ **账号**: {success['username']} 📍{success['service']}\n"
+    
+    # 添加失败账号详情
+    if failed_accounts:
+        for failed in failed_accounts:
+            message += f"❌ **账号**: {failed['username']} 📍{failed['service']}\n"
+    
+    await send_telegram_message(message)
     print('所有账号登录完成！')
     await shutdown_browser()
 
-async def send_telegram_message(message, account_count, success_count, failed_count):
-    formatted_message = f"""
-📨 **Serv00 & CT8 保号脚本运行报告**
-⏰ **北京时间**: `{format_to_iso(datetime.utcnow() + timedelta(hours=8))}`
-📊 **共计**: {account_count} | ✅ **成功**: {success_count} | ❌ **失败**: {failed_count}
-━━━━━━━━━━━━━━━━━━
-{message}
-"""
-
+async def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         'chat_id': TELEGRAM_CHAT_ID,
-        'text': formatted_message,
+        'text': message,
         'parse_mode': 'Markdown',
     }
     headers = {
