@@ -105,9 +105,6 @@ async def main():
         print(f'读取 accounts.json 文件时出错: {e}')
         return
 
-    message += "📊 *登录状态报告*\n\n"
-    message += "━━━━━━━━━━━━━━━━━━━━\n"
-
     for account in accounts:
         username = account['username']
         password = account['password']
