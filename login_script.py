@@ -71,7 +71,6 @@ async def send_telegram_message(message, success_count, failed_count, account_co
 🕘 北京时间: `{format_to_iso(now_beijing)}`
 📊 共计:{account_count} | ✅ 成功:{success_count} | ❌ 失败:{failed_count}
 ━━━━━━━━━━━━━━━━━━
-
 {message}
 """
 
