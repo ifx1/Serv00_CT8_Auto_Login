@@ -68,7 +68,7 @@ async def send_telegram_message(message, success_count, failed_count, account_co
     now_beijing = now_utc.astimezone(beijing_tz)
     formatted_message = f"""📩 *Serv00 & CT8 保号脚本运行报告*
 ⏰ 北京时间:`{format_to_iso(now_beijing)}`
-📊 共计:{a ccount_count} | ✅ 成功:{success_count} | ❌ 失败:{failed_count}
+📊 共计:{account_count} | ✅ 成功:{success_count} | ❌ 失败:{failed_count}
 ━━━━━━━━━━━━━━━━━━
 {message}"""
 
