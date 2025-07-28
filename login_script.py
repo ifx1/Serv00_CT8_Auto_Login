@@ -83,9 +83,10 @@ async def main():
         print(f'读取 accounts.json 文件时出错: {e}')
         return
 
-    # 添加报告头部
-    message += "📊 *登录状态报告*\n\n"
-    message += "━━━━━━━━━━━━━━━━━━━━\n"
+    # 初始化计数器
+    total_count = len(accounts)
+    success_count = 0
+    failed_count = 0
 
     for account in accounts:
         username = account['username']
@@ -95,27 +96,34 @@ async def main():
         serviceName = 'CT8' if 'ct8' in panel else 'Serv00'  # 修改大小写
         is_logged_in = await login(username, password, panel)
 
+        # 更新计数器
+        if is_logged_in:
+            success_count += 1
+        else:
+            failed_count += 1
+
         now_beijing = format_to_iso(datetime.utcnow() + timedelta(hours=8))
         status_icon = "✅" if is_logged_in else "❌"
         status_text = "登录成功" if is_logged_in else "登录失败"
         
         message += (
-            f"{status_icon} *账号*: `{username}`      {serviceName}\n"
+            f"{status_icon} *账号*: `{username}`      【{serviceName}】\n"
         )
 
         delay = random.randint(1000, 8000)
         await delay_time(delay)
     
     # 添加报告尾部
-    await send_telegram_message(message)
+    await send_telegram_message(message, total_count, success_count, failed_count)
     print('所有账号登录完成！')
     await shutdown_browser()
 
-async def send_telegram_message(message):
+async def send_telegram_message(message, total_count, success_count, failed_count):
     formatted_message = f"""
-📨 *Serv00 & CT8 保号脚本运行报告*
-🕘 北京时间: `{format_to_iso(datetime.utcnow() + timedelta(hours=8))}`
-━━━━━━━━━━━━━━━━━━━━
+📩 *Serv00 & CT8 保号脚本运行报告*
+⏰ 北京时间: `{format_to_iso(datetime.utcnow() + timedelta(hours=8))}`
+📊 共计:{total_count} | ✅ 成功:{success_count} | ❌ 失败:{failed_count}
+━━━━━━━━━━━━━━━━━━
 {message}
 """
 
