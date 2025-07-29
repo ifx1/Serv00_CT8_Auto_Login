@@ -101,14 +101,11 @@ async def main():
             success_count += 1
         else:
             failed_count += 1
-
-        now_beijing = format_to_iso(datetime.utcnow() + timedelta(hours=8))
-        status_icon = "✅" if is_logged_in else "❌"
-        status_text = "登录成功" if is_logged_in else "登录失败"
-        
-        message += (
-            f"{status_icon} *账号*: {username}      【{serviceName}】\n"
-        )
+            # 仅在登录失败时添加到消息
+            now_beijing = format_to_iso(datetime.utcnow() + timedelta(hours=8))
+            message += (
+                f"❌ 账号: {username}      【{serviceName}】\n"
+            )
 
         delay = random.randint(1000, 8000)
         await delay_time(delay)
@@ -124,7 +121,7 @@ async def send_telegram_message(message, total_count, success_count, failed_coun
 ⏰ 北京时间: `{format_to_iso(datetime.utcnow() + timedelta(hours=8))}`
 📊 共计:{total_count} | ✅ 成功:{success_count} | ❌ 失败:{failed_count}
 ━━━━━━━━━━━━━━━━━━
-{message}
+{message if message else "🎉 所有账号登录成功，无失败账号！"}
 """
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
