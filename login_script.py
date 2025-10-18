@@ -36,30 +36,27 @@ async def login(username, password, panel):
             )
 
         page = await browser.newPage()
-        # 新增：伪装真实浏览器指纹
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
         await page.evaluateOnNewDocument('''() => {
             Object.defineProperty(navigator, "webdriver", {get: () => undefined});
-        }''')  # 防检测
+        }''')
 
         url = f'https://{panel}/login/?next=/'
         await page.goto(url, {'waitUntil': 'networkidle2', 'timeout': 30000})
 
-        # 1. 输入用户名（保持原样）
+        # 输入账号密码
         username_input = await page.querySelector('#id_username')
         if username_input:
             await page.evaluate('''(input) => input.value = ""''', username_input)
-        await page.type('#id_username', username, {'delay': 50})  # 模拟打字速度
-
-        # 2. 输入密码
+        await page.type('#id_username', username, {'delay': 50})
         await page.type('#id_password', password, {'delay': 50})
 
-        # 3. 【新版】精准点击登录按钮 - 多重保障
+        # 🔥 终极点击逻辑（上面代码块）
         login_selectors = [
-            'button[type="submit"]',  # 最高优先：语义选择器
-            '.login-form__button button',  # 位置选择器
-            '.button--primary[type="submit"]',  # Bootstrap样式
-            'form[data-login-form=""] button[type="submit"]',  # 表单限定
+            'button[type="submit"]',  
+            '.login-form__button button',  
+            '.button--primary[type="submit"]',  
+            'form[data-login-form=""] button[type="submit"]',  
         ]
         
         login_button = None
@@ -70,7 +67,6 @@ async def login(username, password, panel):
                 break
         
         if not login_button:
-            # 调试：打印所有按钮
             all_buttons = await page.querySelectorAll('button')
             button_htmls = await page.evaluate('''(buttons) => {
                 return buttons.map(btn => btn.outerHTML);
@@ -79,21 +75,30 @@ async def login(username, password, panel):
             await page.screenshot({'path': f'{username}_no_button.png'})
             raise Exception('未找到登录按钮')
 
-        # 4. 点击并等待跳转
+        # 🔥 关键修复：强制可见 + 双重点击
+        await page.evaluate('''(button) => {
+            button.scrollIntoView({ behavior: "smooth", block: "center" });
+            button.style.display = "block";
+            button.style.visibility = "visible";
+            button.style.opacity = "1";
+            const overlays = document.querySelectorAll('.select2-container, .loading, [data-form-loader]');
+            overlays.forEach(el => el.style.display = "none");
+            return new Promise(resolve => setTimeout(resolve, 500));
+        }''', login_button)
+
+        await page.evaluate('''(button) => button.click()''', login_button)
+        await asyncio.sleep(0.5)
         await login_button.click()
+
+        print(f'✅ {serviceName} 点击成功，等待跳转...')
         await page.waitForNavigation({'timeout': 15000, 'waitUntil': 'networkidle2'})
 
-        # 5. 验证登录成功（增强版）
+        # 验证登录
         is_logged_in = await page.evaluate('''() => {
-            // 方法1：检查登出链接
             const logoutLink = document.querySelector('a[href="/logout/"]');
             if (logoutLink) return true;
-            
-            // 方法2：检查用户名显示（新版可能有）
             const userMenu = document.querySelector('[href*="/profile/"], .user-menu, .dropdown-user');
             if (userMenu) return true;
-            
-            // 方法3：检查URL变化
             return window.location.pathname !== '/login/';
         }''')
 
@@ -101,6 +106,7 @@ async def login(username, password, panel):
             print(f'✅ {serviceName} 账号 {username} 登录成功')
         else:
             print(f'❌ {serviceName} 账号 {username} 登录失败')
+            await page.screenshot({'path': f'{username}_fail.png'})
 
         return is_logged_in
 
