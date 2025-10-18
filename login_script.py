@@ -45,7 +45,7 @@ async def login(username, password, panel):
         await page.type('#id_username', username, {'delay': 50})
         await page.type('#id_password', password, {'delay': 50})
 
-        # 🔥 终极点击逻辑
+        # 🔥 选择器 + 按钮预处理
         login_selectors = ['button[type="submit"]', '.login-form__button button']
         login_button = None
         for selector in login_selectors:
@@ -57,38 +57,68 @@ async def login(username, password, panel):
         if not login_button:
             raise Exception('未找到登录按钮')
 
-        # 🔥 单次点击 + 智能等待
+        # 🔥 【API修正版】单次点击 + 超强等待
         print(f'✅ {serviceName} 准备点击登录按钮...')
+        
+        # 1. 确保按钮可见
         await page.evaluate('''(button) => {
             button.scrollIntoView({ behavior: "smooth", block: "center" });
             button.style.display = "block";
             button.style.visibility = "visible";
             button.style.opacity = "1";
-            const overlays = document.querySelectorAll('.select2-container, [data-form-loader]');
-            overlays.forEach(el => el.style.display = "none");
         }''', login_button)
 
-        await page.evaluate('''(button) => button.click()''', login_button)
-        print(f'✅ {serviceName} JS点击已发送')
-
-        # 立即等待导航
-        try:
-            await page.waitForNavigation({'timeout': 15000, 'waitUntil': 'domcontentloaded'})
-            print(f'✅ {serviceName} 导航完成')
-        except:
-            print(f'⚠️ {serviceName} 导航超时，使用备用等待...')
-            await page.waitForTimeout(3000)
-
-        await page.waitForTimeout(1000)
-
-        # 验证登录
-        is_logged_in = await page.evaluate('''() => {
-            const logoutLink = document.querySelector('a[href="/logout/"]');
-            if (logoutLink) return true;
-            const userMenu = document.querySelector('[href*="/profile/"], .user-menu, .dropdown-user');
-            if (userMenu) return true;
-            return window.location.pathname !== '/login/';
+        # 2. 【终极方案】直接提交表单（绕过按钮点击问题）
+        print(f'✅ {serviceName} 直接提交表单...')
+        await page.evaluate('''() => {
+            const form = document.querySelector('form[action="/login/"]');
+            if (form) {
+                // 触发表单验证
+                form.reportValidity();
+                form.submit();
+            }
         }''')
+
+        # 3. 【超强等待】多层超时保护
+        print(f'✅ {serviceName} 等待导航（60秒超时）...')
+        
+        # 第一层：监听导航开始
+        navigation_promise = page.waitForNavigation({'timeout': 60000})
+        
+        # 第二层：备用URL变化检测
+        url_change_promise = page.waitForFunction(
+            '() => window.location.pathname !== "/login/"', 
+            {'timeout': 60000}
+        )
+        
+        # 第三层：备用超时
+        timeout_promise = asyncio.wait_for(asyncio.sleep(0), timeout=60)
+        
+        # 任一成功即完成
+        done, pending = await asyncio.wait(
+            [navigation_promise, url_change_promise], 
+            return_when=asyncio.FIRST_COMPLETED,
+            timeout=60
+        )
+        
+        for p in pending:
+            p.cancel()
+            
+        print(f'✅ {serviceName} 导航检测完成')
+
+        # 4. 最终验证（页面稳定后）
+        await page.waitFor(1000)  # ✅ Pyppeteer正确API
+
+        is_logged_in = await page.evaluate('''() => {
+            // 优先级验证
+            if (document.querySelector('a[href="/logout/"]')) return true;
+            if (document.querySelector('[href*="/profile/"]')) return true;
+            if (window.location.pathname !== '/login/') return true;
+            return false;
+        }''')
+
+        current_url = await page.url
+        print(f'📍 {serviceName} 当前URL: {current_url}')
 
         if is_logged_in:
             print(f'✅ {serviceName} 账号 {username} 登录成功')
