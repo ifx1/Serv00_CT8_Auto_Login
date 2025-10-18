@@ -25,41 +25,89 @@ message = ""
 
 async def login(username, password, panel):
     global browser
-
-    page = None  # 确保 page 在任何情况下都被定义
-    serviceName = 'CT8' if 'ct8' in panel else 'Serv00'  # 修改大小写
+    page = None
+    serviceName = 'CT8' if 'ct8' in panel else 'Serv00'
+    
     try:
         if not browser:
-            browser = await launch(headless=True, args=['--no-sandbox', '--disable-setuid-sandbox'])
+            browser = await launch(
+                headless=True, 
+                args=['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled']
+            )
 
         page = await browser.newPage()
-        url = f'https://{panel}/login/?next=/'
-        await page.goto(url)
+        # 新增：伪装真实浏览器指纹
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+        await page.evaluateOnNewDocument('''() => {
+            Object.defineProperty(navigator, "webdriver", {get: () => undefined});
+        }''')  # 防检测
 
+        url = f'https://{panel}/login/?next=/'
+        await page.goto(url, {'waitUntil': 'networkidle2', 'timeout': 30000})
+
+        # 1. 输入用户名（保持原样）
         username_input = await page.querySelector('#id_username')
         if username_input:
             await page.evaluate('''(input) => input.value = ""''', username_input)
+        await page.type('#id_username', username, {'delay': 50})  # 模拟打字速度
 
-        await page.type('#id_username', username)
-        await page.type('#id_password', password)
+        # 2. 输入密码
+        await page.type('#id_password', password, {'delay': 50})
 
-        login_button = await page.querySelector('#submit')
-        if login_button:
-            await login_button.click()
-        else:
-            raise Exception('无法找到登录按钮')
+        # 3. 【新版】精准点击登录按钮 - 多重保障
+        login_selectors = [
+            'button[type="submit"]',  # 最高优先：语义选择器
+            '.login-form__button button',  # 位置选择器
+            '.button--primary[type="submit"]',  # Bootstrap样式
+            'form[data-login-form=""] button[type="submit"]',  # 表单限定
+        ]
+        
+        login_button = None
+        for selector in login_selectors:
+            login_button = await page.querySelector(selector)
+            if login_button:
+                print(f'✅ {serviceName} 找到登录按钮: {selector}')
+                break
+        
+        if not login_button:
+            # 调试：打印所有按钮
+            all_buttons = await page.querySelectorAll('button')
+            button_htmls = await page.evaluate('''(buttons) => {
+                return buttons.map(btn => btn.outerHTML);
+            }''', all_buttons)
+            print(f'❌ {serviceName} 所有按钮: {button_htmls}')
+            await page.screenshot({'path': f'{username}_no_button.png'})
+            raise Exception('未找到登录按钮')
 
-        await page.waitForNavigation()
+        # 4. 点击并等待跳转
+        await login_button.click()
+        await page.waitForNavigation({'timeout': 15000, 'waitUntil': 'networkidle2'})
 
+        # 5. 验证登录成功（增强版）
         is_logged_in = await page.evaluate('''() => {
-            const logoutButton = document.querySelector('a[href="/logout/"]');
-            return logoutButton !== null;
+            // 方法1：检查登出链接
+            const logoutLink = document.querySelector('a[href="/logout/"]');
+            if (logoutLink) return true;
+            
+            // 方法2：检查用户名显示（新版可能有）
+            const userMenu = document.querySelector('[href*="/profile/"], .user-menu, .dropdown-user');
+            if (userMenu) return true;
+            
+            // 方法3：检查URL变化
+            return window.location.pathname !== '/login/';
         }''')
+
+        if is_logged_in:
+            print(f'✅ {serviceName} 账号 {username} 登录成功')
+        else:
+            print(f'❌ {serviceName} 账号 {username} 登录失败')
 
         return is_logged_in
 
     except Exception as e:
-        print(f'{serviceName}账号 {username} 登录时出现错误: {e}')
+        print(f'❌ {serviceName}账号 {username} 登录错误: {e}')
+        if page:
+            await page.screenshot({'path': f'{username}_error.png'})
         return False
 
     finally:
