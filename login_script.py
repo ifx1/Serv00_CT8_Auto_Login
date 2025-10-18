@@ -32,33 +32,21 @@ async def login(username, password, panel):
         if not browser:
             browser = await launch(
                 headless=True, 
-                args=['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled']
+                args=['--no-sandbox', '--disable-setuid-sandbox']
             )
 
         page = await browser.newPage()
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-        await page.evaluateOnNewDocument('''() => {
-            Object.defineProperty(navigator, "webdriver", {get: () => undefined});
-        }''')
 
         url = f'https://{panel}/login/?next=/'
         await page.goto(url, {'waitUntil': 'networkidle2', 'timeout': 30000})
 
         # 输入账号密码
-        username_input = await page.querySelector('#id_username')
-        if username_input:
-            await page.evaluate('''(input) => input.value = ""''', username_input)
         await page.type('#id_username', username, {'delay': 50})
         await page.type('#id_password', password, {'delay': 50})
 
-        # 🔥 终极点击逻辑（上面代码块）
-        login_selectors = [
-            'button[type="submit"]',  
-            '.login-form__button button',  
-            '.button--primary[type="submit"]',  
-            'form[data-login-form=""] button[type="submit"]',  
-        ]
-        
+        # 🔥 终极点击逻辑
+        login_selectors = ['button[type="submit"]', '.login-form__button button']
         login_button = None
         for selector in login_selectors:
             login_button = await page.querySelector(selector)
@@ -67,31 +55,31 @@ async def login(username, password, panel):
                 break
         
         if not login_button:
-            all_buttons = await page.querySelectorAll('button')
-            button_htmls = await page.evaluate('''(buttons) => {
-                return buttons.map(btn => btn.outerHTML);
-            }''', all_buttons)
-            print(f'❌ {serviceName} 所有按钮: {button_htmls}')
-            await page.screenshot({'path': f'{username}_no_button.png'})
             raise Exception('未找到登录按钮')
 
-        # 🔥 关键修复：强制可见 + 双重点击
+        # 🔥 单次点击 + 智能等待
+        print(f'✅ {serviceName} 准备点击登录按钮...')
         await page.evaluate('''(button) => {
             button.scrollIntoView({ behavior: "smooth", block: "center" });
             button.style.display = "block";
             button.style.visibility = "visible";
             button.style.opacity = "1";
-            const overlays = document.querySelectorAll('.select2-container, .loading, [data-form-loader]');
+            const overlays = document.querySelectorAll('.select2-container, [data-form-loader]');
             overlays.forEach(el => el.style.display = "none");
-            return new Promise(resolve => setTimeout(resolve, 500));
         }''', login_button)
 
         await page.evaluate('''(button) => button.click()''', login_button)
-        await asyncio.sleep(0.5)
-        await login_button.click()
+        print(f'✅ {serviceName} JS点击已发送')
 
-        print(f'✅ {serviceName} 点击成功，等待跳转...')
-        await page.waitForNavigation({'timeout': 15000, 'waitUntil': 'networkidle2'})
+        # 立即等待导航
+        try:
+            await page.waitForNavigation({'timeout': 15000, 'waitUntil': 'domcontentloaded'})
+            print(f'✅ {serviceName} 导航完成')
+        except:
+            print(f'⚠️ {serviceName} 导航超时，使用备用等待...')
+            await page.waitForTimeout(3000)
+
+        await page.waitForTimeout(1000)
 
         # 验证登录
         is_logged_in = await page.evaluate('''() => {
@@ -104,11 +92,11 @@ async def login(username, password, panel):
 
         if is_logged_in:
             print(f'✅ {serviceName} 账号 {username} 登录成功')
+            return True
         else:
             print(f'❌ {serviceName} 账号 {username} 登录失败')
             await page.screenshot({'path': f'{username}_fail.png'})
-
-        return is_logged_in
+            return False
 
     except Exception as e:
         print(f'❌ {serviceName}账号 {username} 登录错误: {e}')
