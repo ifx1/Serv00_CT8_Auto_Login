@@ -133,6 +133,7 @@ async def main():
         username = account['username']
         password = account['password']
         panel = account['panel']
+        serviceName = 'CT8' if 'ct8' in panel else 'Serv00'  # ✅ 移到这里
 
         print(f'\n🔄 [{i+1}/{total_count}] 处理 {username}')
         is_logged_in = await login(username, password, panel)
@@ -142,10 +143,10 @@ async def main():
             print(f'✅ {username} 登录成功')
         else:
             failed_count += 1
-            message += f"❌ 账号: {username}      【{serviceName}】\n"
+            message += f"❌ 账号: {username}      【{serviceName}】\n"  # ✅ 现在可用
 
-        # 随机延时（简化）
-        if i < total_count - 1:  # 最后一个不延时
+        # 随机延时
+        if i < total_count - 1:
             delay = random.randint(2000, 5000)
             print(f'⏳ 等待 {delay/1000:.1f}秒...')
             await delay_time(delay)
